@@ -19,6 +19,7 @@ import com.squareup.moshi.Moshi
 import android.widget.ImageView
 import retrofit2.converter.scalars.ScalarsConverterFactory
 import retrofit2.converter.moshi.MoshiConverterFactory
+import com.example.lab_week_05.model.CatBreedData
 
 
 class MainActivity : AppCompatActivity() {
@@ -57,11 +58,16 @@ class MainActivity : AppCompatActivity() {
         GlideLoader(this)
     }
 
+    private val breedInfoTextView: TextView by lazy{
+        findViewById(R.id.breed_info_textview)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         getCatImageResponse()
+        getCatBreedsResponse()
     }
 
 //    private fun getCatImageResponse() {
@@ -113,9 +119,55 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    private fun getCatBreedsResponse() {
+        val call = catApiService.getBreeds()
+        call.enqueue(object : Callback<List<CatBreedData>> {
+            override fun onFailure(call: Call<List<CatBreedData>>, t: Throwable) {
+                Log.e(TAG, "Failed to get cat breeds", t)
+                breedInfoTextView.text = "Unknown"
+            }
+
+            override fun onResponse(
+                call: Call<List<CatBreedData>>,
+                response: Response<List<CatBreedData>>
+            ) {
+                if (response.isSuccessful) {
+                    val breeds: List<CatBreedData>? = response.body()
+                    if (breeds != null && breeds.isNotEmpty()) {
+                        val randomBreed = breeds.randomOrNull()
+                        if (randomBreed != null) {
+                            val breedInfo =
+                                "Breed Name: ${randomBreed.name.orEmpty()}\n" +
+                                        "Temperament: ${randomBreed.temperament.orEmpty()}\n"
+                            breedInfoTextView.text = breedInfo
+                            Log.d(TAG, "Breeds received: ${randomBreed.name.orEmpty()}")
+                        } else {
+                            Log.w(TAG, "Could not select a random breed")
+                            breedInfoTextView.text = "Could not select a random breed"
+                        }
+                    } else if(breeds != null && breeds.isEmpty()){
+                        Log.d(TAG, "No breeds found in the API response")
+                        breedInfoTextView.text = "No breed cat found"
+                    } else {  //all breeds == null
+                        Log.w(TAG, "Breed response successful but body is null or invalid.")
+                        breedInfoTextView.text = "Breed data is unavailable"
+                    }
+                } else {
+                    val errorBody = response.errorBody()?.string().orEmpty()
+                    Log.e(
+                        TAG, "Failed to get breeds response. Code: ${response.code()}\n" +
+                                errorBody
+                    )
+                    apiResponseView.append("\n\nError fetching breeds: ${response.code()}")
+                }
+            }
+        })
+    }
+
 
     companion object{
         const val MAIN_ACTIVITY = "MAIN_ACTIVITY"
+        const val TAG = "CAT_BREED"
     }
 }
 
